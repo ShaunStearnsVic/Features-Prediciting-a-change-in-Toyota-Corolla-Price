@@ -1,0 +1,98 @@
+---
+title: "Module 3 CT Option 2"
+author: "Shaun Stearns"
+date: "8/2/2019"
+output: word_document
+---
+
+#Load Required Packages
+```{r}
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(randomForest)
+library(adabag)
+library(jtools)
+library(sandwich)
+```
+
+#Set Working Directory and read csv file
+```{r}
+Toyota.ct <- read.csv("ToyotaCorolla.csv")
+```
+
+#Dimension of the frame
+```{r}
+dim(Toyota.ct) 
+```
+
+#First six rows
+```{r}
+head(Toyota.ct) 
+```
+
+#Print a list of variables as a refernce guide
+```{r}
+t(t(names(Toyota.ct)))
+```
+
+#Subset of predictors requested by the shareholder
+```{r}
+Toyota.ct <- Toyota.ct[c(3,4,7,8,9,12,14,17,19,21,25,26,28,30,34,39)]
+```
+
+#Summary Statistics for each varaible
+```{r}
+summary(Toyota.ct)
+```
+
+#Check for Missing values
+###No missing values were found
+```{r}
+data.frame(miss.val=sapply(Toyota.ct, function(x) 
+  sum(length(which(is.na(x))))))
+```
+
+#Multiple Regression 
+###Run to see if any variables can be eliminated, partial and part coefficients added to understand how much variability is accounted for by each variable. Jtools was used to provide a more comrpehensive regression analysis.
+```{r}
+ToyReg <- lm(Price~ ., data = Toyota.ct)
+summ(ToyReg, scale = TRUE, part.corr = TRUE, digits = 3)
+```
+
+#Default Regression Tree
+###Provides a preview of the most relevant variables predicting Price.
+```{r}
+ToyReg.tree <- rpart(Price ~ ., data = Toyota.ct, method = "anova")
+length(ToyReg.tree$frame$var[ToyReg.tree$frame$var == "<leaf>"])
+prp(ToyReg.tree, type = 1, extra = 1, under = TRUE, split.font = 1, varlen = -10, digits=-6)
+```
+
+#Deep Regression Tree 
+###At 121 leafs, I chose not to produce this tree due to technical limitations.
+```{r}
+ToyReg.tree <- rpart(Price ~ ., data = Toyota.ct, method = "anova", cp = 0, maxdepth = 30)
+length(ToyReg.tree$frame$var[ToyReg.tree$frame$var == "<leaf>"])
+```
+
+#Specified Regression Tree 
+###This tree specifically meets the parameters requested by the share holder.
+```{r}
+ToyReg.tree <- rpart(Price ~ ., data = Toyota.ct, method = "anova", cp = 0.001, maxdepth = 30)
+length(ToyReg.tree$frame$var[ToyReg.tree$frame$var == "<leaf>"])
+prp(ToyReg.tree, type = 1, extra = 1, under = TRUE, split.font = 1, varlen = -10, digits=-6)
+```
+
+#Pruned Regression Tree: Best pruned regression tree. 
+###It's interesting that there are more leaves produced than the code requested by the shareholder.
+```{r}
+Toy.ct <- rpart(Price ~ ., data = Toyota.ct, method = "anova",
+                cp = 0.001, minsplit = 5, xval = 5)
+length(ToyReg.tree$frame$var[ToyReg.tree$frame$var == "<leaf>"])
+printcp(Toy.ct)
+
+pruned.ct <- prune(Toy.ct,
+                   cp = Toy.ct$cptable[which.min(Toy.ct$cptable[,"xerror"]), "CP"])
+length(pruned.ct$frame$var[pruned.ct$frame$var == "<leaf>"])
+prp(pruned.ct, type = 1, extra = 1, split.font = 1, varlen = -10, digits=-6)
+```
